@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm:*)",
+      "WebFetch(domain:aunesa.com)",
+      "Bash(find /home/renaiss-user/proyectos/scrum-poker/packages/client/src -name \"*.js\" -delete)",
+      "Bash(grep -o \"line-clamp\\\\|whitespace-pre-wrap\\\\|pre-wrap\\\\|Descripci\" /home/renaiss-user/proyectos/scrum-poker/packages/server/dist/public/assets/*.js)",
+      "Bash(grep:*)",
+      "Bash(find /home/renaiss-user/proyectos/scrum-poker/packages/client/src -name \"*.js\" -delete rm -rf /home/renaiss-user/proyectos/scrum-poker/packages/client/dist /home/renaiss-user/proyectos/scrum-poker/packages/server/dist pnpm build)",
+      "Bash(find packages/client/src -name \"*.js\" -delete)",
+      "Bash(pkill -f \"node dist/index.js\")",
+      "Bash(find /home/renaiss-user/proyectos/scrum-poker -type d -not -path */node_modules/* -not -path */.git/* -not -path */dist/*)",
+      "Bash(find /home/renaiss-user/proyectos/scrum-poker/packages/server/dist -name *.js)",
+      "Bash(kill 109199 109187 109175)",
+      "Bash(curl -s http://localhost:3000/api/rooms)",
+      "Bash(xargs cat:*)",
+      "Bash(node -e \":*)",
+      "Bash(node:*)",
+      "Bash(kill 111816 111818 111780 111793 111795 111819 112847 112848 2)",
+      "Bash(/dev/null sleep:*)",
+      "Bash(find /home/renaiss-user/proyectos/scrum-poker -path */socket.io-client* -name index.js)",
+      "Bash(python3:*)",
+      "Bash(find /home/renaiss-user/proyectos/scrum-poker/packages/client -name .vite -o -name *.vite 2)",
+      "Bash(/dev/null find:*)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(pkill -f node.*scrum-poker 2)",
+      "Bash(/dev/null pkill:*)",
+      "Bash(kill -9 122519 2)",
+      "Bash(npx tsc:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

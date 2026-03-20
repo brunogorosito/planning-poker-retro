@@ -1,0 +1,31 @@
+# Dependencias
+node_modules/
+
+# Builds
+packages/client/dist/
+packages/server/dist/
+
+# Base de datos
+packages/server/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Variables de entorno — NUNCA commitear
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
