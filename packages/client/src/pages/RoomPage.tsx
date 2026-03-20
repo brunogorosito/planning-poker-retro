@@ -9,30 +9,11 @@ import { JiraDescription } from "../components/JiraDescription";
 import { SummaryPage } from "./SummaryPage";
 import { useJiraIssue } from "../hooks/useJiraIssue";
 import type { JoinRoomPayload, PlannedStory } from "../../../server/src/types";
+import { FIBONACCI, ceilToFib, calcRoleAverage, suggestFib } from "../lib/fibonacci";
 
 interface Props {
   joinPayload: JoinRoomPayload;
   onLeave: () => void;
-}
-
-const FIBONACCI = [1, 2, 3, 5, 8, 13, 21];
-
-function ceilToFib(n: number): number {
-  for (const f of FIBONACCI) {
-    if (f >= n) return f;
-  }
-  return FIBONACCI[FIBONACCI.length - 1];
-}
-
-function calcRoleAverage(values: string[]): number | null {
-  const numeric = values.filter((v) => v !== "?").map(Number).filter((n) => !isNaN(n));
-  if (numeric.length === 0) return null;
-  return Math.round((numeric.reduce((a, b) => a + b, 0) / numeric.length) * 10) / 10;
-}
-
-function suggestFib(avg: number | null): string {
-  if (avg === null) return "0";
-  return String(ceilToFib(avg));
 }
 
 function AddToQueueForm({ onAdd }: { onAdd: (storyName: string, jiraKey?: string) => void }) {

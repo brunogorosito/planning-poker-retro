@@ -2,6 +2,7 @@ import type { Server, Socket } from "socket.io";
 import { eq, desc } from "drizzle-orm";
 import { db } from "../db";
 import { rooms, sessions, votes, users } from "../db/schema";
+import { calcAverage } from "../lib/scoring";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "../events";
 import { generateId } from "../lib/id";
 import {
@@ -30,15 +31,6 @@ import type {
   RoomState,
 } from "../types";
 
-function calcAverage(voteValues: string[]): number | null {
-  const numeric = voteValues
-    .filter((v) => v !== "?")
-    .map(Number)
-    .filter((n) => !isNaN(n));
-  if (numeric.length === 0) return null;
-  const sum = numeric.reduce((a, b) => a + b, 0);
-  return Math.round((sum / numeric.length) * 10) / 10;
-}
 
 function buildRoomState(roomId: string): RoomState | null {
   const room = db.select().from(rooms).where(eq(rooms.id, roomId)).get();

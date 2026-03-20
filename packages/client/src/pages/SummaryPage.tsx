@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { socket } from "../socket";
 import { CLIENT_EVENTS } from "../../../server/src/events";
 import type { Session, Vote } from "../../../server/src/types";
+import { overallAvg } from "../lib/fibonacci";
 
 interface HistoryEntry {
   session: Session;
@@ -11,16 +12,7 @@ interface HistoryEntry {
 interface Props {
   roomId: string;
   roomName: string;
-  onClose: () => void; // volver a sala vacía (para seguir o salir)
-}
-
-function overallAvg(values: (string | null)[]): string {
-  const nums = values
-    .filter((v): v is string => v !== null && v !== "0" && v !== "")
-    .map(Number)
-    .filter((n) => !isNaN(n) && n > 0);
-  if (nums.length === 0) return "—";
-  return String(Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10);
+  onClose: () => void;
 }
 
 export function SummaryPage({ roomId, roomName, onClose }: Props) {
