@@ -10,6 +10,8 @@ packages/server-python/public/
 .venv/
 __pycache__/
 *.pyc
+.coverage
+coverage.xml
 
 # Base de datos
 packages/server/data/

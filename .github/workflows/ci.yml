@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Test & Coverage
+  test-js:
+    name: JS Tests & Coverage
     runs-on: ubuntu-latest
 
     steps:
@@ -50,3 +50,34 @@ jobs:
           files: packages/server/coverage/coverage-final.json
           flags: server
           name: server-coverage
+
+  test-python:
+    name: Python Tests & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: packages/server-python
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+
+      - name: Run Python tests with coverage
+        working-directory: packages/server-python
+        run: .venv/bin/pytest
+
+      - name: Upload Python coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/server-python/coverage.xml
+          flags: server-python
+          name: server-python-coverage

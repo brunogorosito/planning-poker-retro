@@ -10,7 +10,7 @@ class CreateRoomBody(BaseModel):
     name: str
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def create_room(body: CreateRoomBody):
     if not body.name.strip():
         raise HTTPException(status_code=400, detail="name es requerido")

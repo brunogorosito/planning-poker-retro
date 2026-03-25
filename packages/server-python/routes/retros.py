@@ -22,7 +22,7 @@ class CreateRetroBody(BaseModel):
     columns: list[ColumnSpec]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def create_retro(body: CreateRetroBody):
     if not body.title.strip() or not body.facilitatorEmail or not body.columns:
         raise HTTPException(status_code=400, detail="Faltan campos requeridos")
