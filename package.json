@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
-    "build": "pnpm --filter client build && pnpm --filter server build && rm -rf packages/server/dist/public && cp -r packages/client/dist packages/server/dist/public",
-    "start": "pnpm --filter server start",
+    "build": "pnpm --filter client build && rm -rf packages/server-python/public && cp -r packages/client/dist packages/server-python/public",
+    "start": "cd packages/server-python && .venv/bin/python main.py",
     "test": "pnpm --filter client test && pnpm --filter server test",
     "test:coverage": "pnpm --filter client test:coverage && pnpm --filter server test:coverage"
   },

@@ -11,14 +11,13 @@ Aplicación web de Scrum Poker en tiempo real para equipos de hasta 25 personas.
 | Capa | Tecnología | Motivo |
 |---|---|---|
 | Frontend | React + Vite + TypeScript | Rápido, moderno, fácil de mantener |
-| Backend | Node.js + Express + TypeScript | Simple, bien soportado con Socket.io |
-| Tiempo real | Socket.io | Requerimiento explícito |
-| Base de datos | SQLite (via better-sqlite3) | Sin infraestructura extra, fácil de desplegar, persiste a reinicios |
-| ORM | Drizzle ORM | Liviano, type-safe, bien integrado con SQLite |
+| Backend | Python 3 + FastAPI + python-socketio | El servidor de producción solo tiene Python instalado |
+| Tiempo real | python-socketio (ASGI) | Compatible con el cliente socket.io-client de JS |
+| Base de datos | SQLite (via sqlite3 stdlib) | Sin infraestructura extra, fácil de desplegar, persiste a reinicios |
 | Estilos | Tailwind CSS | Productivo para videocoding |
-| Package manager | pnpm | Más rápido que npm |
+| Package manager | pnpm | Más rápido que npm (solo para el frontend) |
 
-> **Deploy:** El equipo de Infraestructura despliega en un servidor interno usando **Nexus** como registro de artefactos. El backend sirve el frontend buildeado como archivos estáticos (single deployable unit).
+> **Deploy:** El equipo de Infraestructura despliega en un servidor interno usando **Nexus** como registro de artefactos. El backend Python sirve el frontend buildeado como archivos estáticos (single deployable unit).
 
 ---
 
@@ -27,91 +26,138 @@ Aplicación web de Scrum Poker en tiempo real para equipos de hasta 25 personas.
 ```
 scrum-poker/
 ├── packages/
-│   ├── client/          # React + Vite
-│   └── server/          # Express + Socket.io
-├── package.json         # pnpm workspace root
+│   ├── client/             # React + Vite (TypeScript)
+│   ├── server/             # Node.js legacy (solo para desarrollo local con pnpm dev)
+│   └── server-python/      # Python — el servidor que se despliega a producción
+│       ├── main.py         # Entry point: FastAPI + uvicorn + socket.io
+│       ├── db.py           # SQLite + helpers (fetchone, fetchall, execute, generate_id...)
+│       ├── memory.py       # Estado en memoria: participantes + cola de historias
+│       ├── retro_memory.py # Estado en memoria: participantes de retro + timers
+│       ├── socket_handlers.py  # Eventos Socket.io de Scrum Poker
+│       ├── retro_handlers.py   # Eventos Socket.io de Retrospectiva
+│       ├── routes/
+│       │   ├── rooms.py    # /api/rooms
+│       │   ├── retros.py   # /api/retros
+│       │   └── jira.py     # /api/jira
+│       └── requirements.txt
+├── package.json            # pnpm workspace root
 └── CLAUDE.md
 ```
 
-El servidor Express sirve la API REST, los WebSockets **y** los archivos estáticos del frontend buildeado. Un solo proceso, un solo puerto. Fácil para Infraestructura.
+El servidor Python sirve la API REST, los WebSockets **y** los archivos estáticos del frontend buildeado. Un solo proceso, un solo puerto. Fácil para Infraestructura.
+
+> `packages/server/` (Node.js) solo se usa para `pnpm dev` en desarrollo local. El servidor de producción es exclusivamente el Python.
 
 ---
 
 ## Modelo de datos (SQLite)
+
+### `users`
+| columna | tipo | descripción |
+|---|---|---|
+| email | TEXT PK | email del usuario |
+| name | TEXT | nombre para mostrar |
+| created_at | INTEGER | timestamp unix ms |
+| updated_at | INTEGER | timestamp unix ms |
 
 ### `rooms`
 | columna | tipo | descripción |
 |---|---|---|
 | id | TEXT PK | código de sala (ej: `ABC123`) |
 | name | TEXT | nombre descriptivo de la sala |
-| created_at | INTEGER | timestamp unix |
+| created_at | INTEGER | timestamp unix ms |
 
 ### `sessions`
 | columna | tipo | descripción |
 |---|---|---|
-| id | TEXT PK | uuid |
+| id | TEXT PK | hex aleatorio (32 chars) |
 | room_id | TEXT FK | sala a la que pertenece |
 | story_name | TEXT | nombre/descripción de la historia |
+| jira_key | TEXT | clave de Jira (nullable) |
+| story_queue_id | TEXT | referencia a item de cola (nullable) |
 | result | TEXT | consenso final (nullable) |
-| created_at | INTEGER | timestamp unix |
+| dev_result | TEXT | estimación Dev (nullable) |
+| qa_result | TEXT | estimación QA (nullable) |
+| created_at | INTEGER | timestamp unix ms |
 | revealed_at | INTEGER | cuando se revelaron los votos (nullable) |
 
 ### `votes`
 | columna | tipo | descripción |
 |---|---|---|
-| id | TEXT PK | uuid |
+| id | TEXT PK | hex aleatorio |
 | session_id | TEXT FK | sesión a la que pertenece |
 | participant_name | TEXT | nombre del votante |
+| participant_role | TEXT | rol: Dev, QA, Otro |
 | value | TEXT | valor votado (1,2,3,5,8,13,21,?) |
-| created_at | INTEGER | timestamp unix |
+| created_at | INTEGER | timestamp unix ms |
+
+### `story_queue`
+| columna | tipo | descripción |
+|---|---|---|
+| id | TEXT PK | hex aleatorio |
+| room_id | TEXT FK | sala a la que pertenece |
+| story_name | TEXT | nombre de la historia |
+| jira_key | TEXT | clave de Jira (nullable) |
+| position | INTEGER | orden en la cola |
+| created_at | INTEGER | timestamp unix ms |
+
+### `retros`, `retro_columns`, `retro_items`, `retro_votes`
+Tablas del módulo de Retrospectiva.
 
 ---
 
-## Funcionalidades — v1
+## Funcionalidades
 
-### Flujo principal
-1. Usuario entra, escribe su **nombre**
+### Scrum Poker
+1. Usuario entra con su **nombre** y **email**
 2. Puede **crear una sala** (se convierte en Moderador) o **unirse con un código**
-3. Dentro de la sala, el Moderador escribe el nombre de la historia y arranca la ronda
-4. Todos los participantes ven las cartas y votan (voto oculto hasta revelación)
+3. El Moderador escribe el nombre de la historia y arranca la ronda
+4. Todos los participantes votan (voto oculto hasta revelación)
 5. El Moderador **revela** los votos → se muestran todos los valores y el promedio
-6. El Moderador puede **guardar el resultado** (consenso) y arrancar una nueva ronda
-7. El historial de la sala muestra todas las historias votadas con sus resultados
+6. El Moderador puede **guardar el resultado** y arrancar una nueva ronda
+7. El historial de la sala muestra todas las historias votadas
 
-### Roles
+### Retrospectiva
+Módulo adicional con fases: `waiting → writing → revealed → voting → closed`
+
+### Roles (Scrum Poker)
 | Rol | Capacidades |
 |---|---|
-| **Moderador** | Crear ronda, revelar votos, guardar resultado, resetear ronda, ver historial |
+| **Moderador** | Crear ronda, revelar votos, guardar resultado, gestionar cola |
 | **Participante** | Votar, ver estado de la sala, ver historial |
-
-> El primero en crear la sala es el Moderador. En v1 no hay transferencia de rol.
 
 ### Mazo
 Fibonacci: `1, 2, 3, 5, 8, 13, 21, ?`
 
 ---
 
-## Eventos Socket.io
+## Eventos Socket.io — Scrum Poker
 
 ### Cliente → Servidor
 | evento | payload | descripción |
 |---|---|---|
-| `join_room` | `{ roomId, name, isModerator }` | Entrar a una sala |
+| `join_room` | `{ roomId, name, email, isModerator, role }` | Entrar a una sala |
 | `vote` | `{ sessionId, value }` | Emitir voto |
 | `reveal_votes` | `{ sessionId }` | Revelar (solo Moderador) |
-| `save_result` | `{ sessionId, result }` | Guardar consenso (solo Moderador) |
-| `new_round` | `{ roomId, storyName }` | Nueva ronda (solo Moderador) |
+| `save_result` | `{ sessionId, result, devResult, qaResult }` | Guardar consenso |
+| `new_round` | `{ roomId, storyName, jiraKey? }` | Nueva ronda (solo Moderador) |
+| `add_to_queue` | `{ roomId, storyName, jiraKey? }` | Agregar historia a la cola |
+| `remove_from_queue` | `{ roomId, storyId }` | Quitar historia de la cola |
+| `start_from_queue` | `{ roomId, storyId }` | Iniciar ronda desde la cola |
+| `close_queue` | — | Limpiar la cola |
 
 ### Servidor → Cliente(s)
 | evento | payload | descripción |
 |---|---|---|
 | `room_state` | estado completo de la sala | Al conectarse o reconectarse |
-| `participant_joined` | `{ name }` | Nuevo participante |
+| `participant_joined` | `{ name, role }` | Nuevo participante |
 | `participant_left` | `{ name }` | Participante desconectado |
 | `vote_cast` | `{ name, hasVoted }` | Alguien votó (sin revelar el valor) |
 | `votes_revealed` | `{ votes[], average }` | Votos revelados |
 | `result_saved` | `{ sessionId, result }` | Consenso guardado |
 | `round_started` | `{ session }` | Nueva ronda iniciada |
+| `queue_updated` | `{ queue[] }` | Cola de historias actualizada |
+| `error` | `{ message }` | Error de operación |
 
 ---
 
@@ -122,45 +168,65 @@ Fibonacci: `1, 2, 3, 5, 8, 13, 21, ?`
 | `POST` | `/api/rooms` | Crear sala |
 | `GET` | `/api/rooms/:id` | Obtener sala + sesión activa |
 | `GET` | `/api/rooms/:id/history` | Historial de votaciones |
+| `POST` | `/api/retros` | Crear retrospectiva |
+| `GET` | `/api/retros/:id` | Obtener retrospectiva |
+| `GET` | `/api/jira/issue/:key` | Proxy a Jira API |
+| `GET` | `/api/health` | Health check |
 
 ---
 
 ## Convenciones de código
 
-- **TypeScript estricto** en ambos packages (`strict: true`)
-- Tipos compartidos en `packages/server/src/types.ts` (importados desde el cliente via path relativo o package interno)
-- Nombres de eventos Socket.io definidos como constantes en un archivo `events.ts` compartido
-- No usar `any`
+- **Python 3.10+** en el servidor (usa `dict | None`, `list[str]`, etc.)
+- Las filas de SQLite se convierten a camelCase con `row_to_camel()` antes de enviarlas al frontend
+- Los timestamps son enteros en milisegundos (unix ms), consistente con el JS original
 - Componentes React en PascalCase, hooks con prefijo `use`
+- Tipos TypeScript del cliente en `packages/server/src/types.ts` (no cambiar, el cliente los usa)
 
 ---
 
 ## Comandos de desarrollo
 
 ```bash
-# Instalar todo
+# Instalar dependencias del frontend
 pnpm install
 
-# Desarrollo (ambos procesos en paralelo)
+# Instalar dependencias del servidor Python (con virtualenv)
+cd packages/server-python
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+# Desarrollo frontend + servidor Node legacy (para devs con Node local)
 pnpm dev
 
-# Build para producción
+# Desarrollo con el servidor Python
+cd packages/server-python && .venv/bin/uvicorn main:socket_app --reload
+# (en otra terminal)
+pnpm --filter client dev
+
+# Build para producción (genera los estáticos en server-python/public/)
 pnpm build
 
-# El servidor sirve el cliente desde dist/
+# Iniciar servidor Python (producción)
 pnpm start
+# equivalente a: cd packages/server-python && python main.py
 ```
 
 ---
 
 ## Notas para el deploy con Nexus
 
-- El build genera un **único artefacto**: el servidor Node.js con los estáticos del cliente embebidos en `server/dist/public/`
+- El build genera un **único artefacto**: el directorio `packages/server-python/` con los estáticos del cliente en `public/`
 - Variables de entorno necesarias:
   - `PORT` (default: 3000)
   - `DB_PATH` (default: `./data/scrum-poker.db`) — debe apuntar a un volumen persistente
+  - `CORS_ORIGIN` (default: `http://localhost:5173`) — origin permitido en producción
+  - `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN` — opcionales, para integración Jira
 - El proceso escucha en `0.0.0.0:PORT`
 - No requiere ningún otro servicio externo (sin Redis, sin Postgres, sin nada)
+- **Python 3.10+** requerido en el servidor
+- Crear venv e instalar: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
+- Iniciar: `.venv/bin/python main.py` desde `packages/server-python/`
 
 ---
 
@@ -170,5 +236,4 @@ pnpm start
 - Transferencia de rol de Moderador
 - Múltiples moderadores
 - Mazos personalizados
-- Integración con Jira / Linear
 - Notificaciones por email

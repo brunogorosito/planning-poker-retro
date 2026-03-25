@@ -4,6 +4,12 @@ node_modules/
 # Builds
 packages/client/dist/
 packages/server/dist/
+packages/server-python/public/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
 
 # Base de datos
 packages/server/data/
